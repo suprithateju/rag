@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuMind - AI Document Intelligence</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        dark: '#0f172a',
+                        darker: '#020617',
+                        card: '#1e293b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #020617; color: white; font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="antialiased h-screen overflow-hidden">
+    <div id="root" class="h-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (iconRef.current) {
+                    lucide.createIcons({
+                        icons: { [name]: lucide.icons[name] },
+                        nameAttr: 'data-lucide',
+                        attrs: { class: className, width: size, height: size }
+                    });
+                }
+            }, [name, className, size]);
+            return <i ref={iconRef} data-lucide={name}></i>;
+        };
+
+        function App() {
+            const [file, setFile] = useState(null);
+            const [uploading, setUploading] = useState(false);
+            const [uploadSuccess, setUploadSuccess] = useState(false);
+            const [query, setQuery] = useState("");
+            const [chat, setChat] = useState([]);
+            const [loading, setLoading] = useState(false);
+            
+            const messagesEndRef = useRef(null);
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, [chat]);
+
+            const handleFileChange = (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    setFile(e.target.files[0]);
+                    setUploadSuccess(false);
+                }
+            };
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    setFile(e.dataTransfer.files[0]);
+                    setUploadSuccess(false);
+                }
+            };
+
+            const uploadDocument = async () => {
+                if (!file) return;
+                setUploading(true);
+                const formData = new FormData();
+                formData.append("file", file);
+
+                try {
+                    const res = await fetch("/upload/", {
+                        method: "POST",
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        setUploadSuccess(true);
+                        setChat([{ role: 'system', content: `Successfully processed ${file.name}. Model is ready. Ask your questions below!` }]);
+                    } else {
+                        alert(data.detail || "Upload failed");
+                    }
+                } catch (err) {
+                    alert("Error connecting to server.");
+                }
+                setUploading(false);
+            };
+
+            const askQuestion = async () => {
+                if (!query.trim()) return;
+                const newQuery = query;
+                setQuery("");
+                
+                const newChat = [...chat, { role: 'user', content: newQuery }];
+                setChat(newChat);
+                setLoading(true);
+
+                try {
+                    const res = await fetch("/query/", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ query: newQuery })
+                    });
+                    
+                    const data = await res.json();
+                    if (res.ok) {
+                        setChat([...newChat, { role: 'assistant', content: data.answer, sources: data.sources }]);
+                    } else {
+                        setChat([...newChat, { role: 'system', content: `Error: ${data.detail}` }]);
+                    }
+                } catch (err) {
+                    setChat([...newChat, { role: 'system', content: "Network error. Make sure backend is running." }]);
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="flex h-full bg-darker text-white font-sans">
+                    {/* Sidebar */}
+                    <div className="w-80 glass-panel border-r border-white/10 flex flex-col p-6 shadow-2xl z-10 relative overflow-hidden">
+                        {/* Decorative glow */}
+                        <div className="absolute top-0 left-0 w-full h-32 bg-blue-600/20 blur-3xl -z-10 rounded-full mix-blend-screen"></div>
+
+                        <div className="flex items-center gap-3 mb-10 mt-2">
+                            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl shadow-lg shadow-blue-500/30">
+                                <Icon name="BrainCircuit" className="text-white" size={26} />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent tracking-tight">DocuMind</h1>
+                                <p className="text-xs text-blue-400 font-medium tracking-wide uppercase mt-0.5">AI Intelligence</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex-1 flex flex-col justify-center">
+                            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Knowledge Base</h2>
+                            
+                            <label 
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={handleDrop}
+                                className={`block border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 group ${file ? 'border-blue-500/50 bg-blue-500/10 shadow-[0_0_30px_rgba(59,130,246,0.15)]' : 'border-slate-600 hover:border-blue-500/50 bg-slate-800/30 hover:bg-slate-800/50'}`}
+                            >
+                                <input type="file" accept=".pdf" className="hidden" onChange={handleFileChange} />
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className={`p-4 rounded-full transition-colors duration-300 ${file ? 'bg-blue-500/20' : 'bg-slate-700/50 group-hover:bg-slate-700'}`}>
+                                        <Icon name={file ? "FileText" : "UploadCloud"} size={32} className={file ? "text-blue-400" : "text-slate-400 group-hover:text-blue-400"} />
+                                    </div>
+                                    <div className="text-sm">
+                                        {file ? (
+                                            <span className="font-semibold text-blue-300 truncate block px-2" title={file.name}>{file.name}</span>
+                                        ) : (
+                                            <span className="text-slate-300 font-medium">Drag & drop or <span className="text-blue-400 underline decoration-blue-400/30 underline-offset-4">browse</span></span>
+                                        )}
+                                        {!file && <p className="text-xs text-slate-500 mt-2">PDF documents up to 200MB</p>}
+                                    </div>
+                                </div>
+                            </label>
+
+                            <button 
+                                onClick={uploadDocument} 
+                                disabled={!file || uploading}
+                                className={`w-full mt-6 py-3.5 rounded-xl font-medium transition-all duration-300 flex justify-center items-center gap-2 relative overflow-hidden ${(!file || uploading) ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' : 'bg-blue-600 hover:bg-blue-500 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-500/25 text-white border border-blue-500/50'}`}
+                            >
+                                {uploading ? (
+                                    <><Icon name="Loader2" className="animate-spin" size={18} /> Processing Document...</>
+                                ) : uploadSuccess ? (
+                                    <><Icon name="CheckCircle2" size={18} className="text-green-400" /> Vector Store Ready</>
+                                ) : (
+                                    <><Icon name="DatabaseZap" size={18} /> Initialize Vector DB</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Main Chat Area */}
+                    <div className="flex-1 flex flex-col bg-[#0b1120] relative">
+                        {/* Background subtle pattern */}
+                        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
+                        
+                        <div className="flex-1 overflow-y-auto p-8 z-0 scroll-smooth">
+                            {chat.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-60">
+                                    <div className="bg-slate-800/50 p-6 rounded-3xl mb-6 shadow-inner border border-slate-700/50">
+                                        <Icon name="Bot" size={56} className="text-blue-400" />
+                                    </div>
+                                    <h2 className="text-2xl font-semibold text-slate-300 mb-2">How can I help you today?</h2>
+                                    <p className="text-slate-400 text-center max-w-sm">Upload a PDF document to the left, initialize the vector database, and start asking complex questions.</p>
+                                </div>
+                            ) : (
+                                <div className="max-w-4xl mx-auto space-y-8 pb-10">
+                                    {chat.map((msg, i) => (
+                                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-4 duration-500`}>
+                                            {msg.role !== 'user' && (
+                                                <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mr-4 mt-1 shrink-0">
+                                                    <Icon name={msg.role === 'system' ? "Settings2" : "Bot"} size={16} className="text-blue-400" />
+                                                </div>
+                                            )}
+                                            
+                                            <div className={`max-w-[85%] rounded-2xl p-5 shadow-sm leading-relaxed ${
+                                                msg.role === 'user' ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-tr-sm shadow-blue-500/20' : 
+                                                msg.role === 'system' ? 'bg-amber-500/10 text-amber-200 border border-amber-500/20' :
+                                                'bg-slate-800/80 backdrop-blur-md border border-slate-700/50 text-slate-200 rounded-tl-sm'
+                                            }`}>
+                                                <div className="whitespace-pre-wrap">{msg.content}</div>
+                                                
+                                                {/* Citations */}
+                                                {msg.sources && msg.sources.length > 0 && (
+                                                    <div className="mt-6 pt-5 border-t border-slate-700/50">
+                                                        <p className="text-[11px] font-bold text-slate-500 mb-3 flex items-center gap-1.5 tracking-widest uppercase">
+                                                            <Icon name="Quote" size={12} className="text-blue-400" /> GROUNDING SOURCES
+                                                        </p>
+                                                        <div className="flex flex-col gap-2.5">
+                                                            {msg.sources.map((s, idx) => (
+                                                                <details key={idx} className="group bg-slate-900/50 rounded-xl overflow-hidden border border-slate-700/50 hover:border-blue-500/30 transition-colors duration-300">
+                                                                    <summary className="text-sm font-medium p-3 px-4 cursor-pointer select-none flex items-center justify-between text-slate-300 hover:text-blue-300">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="bg-slate-800 px-2 py-0.5 rounded text-xs border border-slate-700 font-mono text-blue-400">Pg. {s.page}</span>
+                                                                            <span className="truncate max-w-[200px] text-xs text-slate-400">{s.source.split('/').pop().split('\\').pop()}</span>
+                                                                        </div>
+                                                                        <Icon name="ChevronDown" size={16} className="group-open:rotate-180 transition-transform duration-300 text-slate-500" />
+                                                                    </summary>
+                                                                    <div className="p-4 pt-2 text-sm text-slate-400 leading-relaxed border-t border-slate-800">
+                                                                        <div className="pl-3 border-l-2 border-blue-500/30">
+                                                                            "{s.text}"
+                                                                        </div>
+                                                                    </div>
+                                                                </details>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {loading && (
+                                        <div className="flex justify-start animate-in fade-in">
+                                            <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mr-4 mt-1 shrink-0">
+                                                <Icon name="Bot" size={16} className="text-blue-400 animate-pulse" />
+                                            </div>
+                                            <div className="bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-2xl rounded-tl-sm px-5 py-4 flex gap-1.5 items-center">
+                                                <div className="w-2 h-2 bg-blue-400/80 rounded-full animate-bounce"></div>
+                                                <div className="w-2 h-2 bg-blue-400/80 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                                                <div className="w-2 h-2 bg-blue-400/80 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div ref={messagesEndRef} className="h-4" />
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Input Area */}
+                        <div className="p-6 bg-[#0b1120]/90 backdrop-blur-xl border-t border-white/5 z-10">
+                            <div className="max-w-4xl mx-auto relative group">
+                                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl opacity-0 group-focus-within:opacity-20 transition duration-500 blur"></div>
+                                <div className="relative flex items-center bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-inner focus-within:border-blue-500/50 transition-colors">
+                                    <input 
+                                        type="text" 
+                                        value={query}
+                                        onChange={(e) => setQuery(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && askQuestion()}
+                                        placeholder="Ask a question about your document..." 
+                                        className="w-full bg-transparent text-white py-4 pl-6 pr-16 outline-none placeholder:text-slate-500"
+                                        disabled={!uploadSuccess && chat.length === 0}
+                                    />
+                                    <button 
+                                        onClick={askQuestion}
+                                        disabled={!query.trim() || (!uploadSuccess && chat.length === 0)}
+                                        className="absolute right-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700/50 disabled:text-slate-500 text-white p-2.5 w-11 h-11 flex items-center justify-center rounded-xl transition-all duration-300 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20"
+                                    >
+                                        <Icon name="ArrowUp" size={20} strokeWidth={2.5} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
