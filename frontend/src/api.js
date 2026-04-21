@@ -94,3 +94,32 @@ export const queryDocumentStream = async (query, history, onChunk, onSources) =>
     throw error;
   }
 };
+
+export const analyzeDocument = async (filename) => {
+  try {
+    const response = await fetch(`${API_URL}/analyze/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Analysis failed');
+    }
+
+    return await response.json();
+  } catch (error) {
+    throw new Error(error.message || 'Could not connect to the server');
+  }
+};
+
+export const fetchDocuments = async () => {
+    try {
+        const response = await fetch(`${API_URL}/documents/`);
+        if (!response.ok) throw new Error("Failed to fetch documents");
+        return await response.json();
+    } catch (error) {
+        throw error;
+    }
+};

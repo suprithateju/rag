@@ -8,13 +8,16 @@ reranker = None
 
 def answer_question_stream(query: str, history: list = None, collection_name: str = "documind"):
     retriever = get_retriever(collection_name, k=4)
-    if not retriever:
-        raise ValueError("Vector store not found. Please upload and process a document first.")
-        
-    # 1. Retrieve Candidate Documents (Top 4 from Ensemble)
-    source_docs = retriever.invoke(query)
     
-    # 2. Extract Top Results (Skipping heavy CrossEncoder for speed)
+    # 1. Retrieve Candidate Documents (if retriever exists)
+    source_docs = []
+    if retriever:
+        try:
+            source_docs = retriever.invoke(query)
+        except Exception:
+            pass # Failsafe if DB exists but throws error
+    
+    # 2. Extract Top Results
     sources = []
     if source_docs:
         top_docs = source_docs[:3]
@@ -36,9 +39,12 @@ def answer_question_stream(query: str, history: list = None, collection_name: st
         context = "No relevant context found."
         
     # 3. Prepare Prompt with History
-    system_prompt = f"""Use the following pieces of retrieved context to answer the user's question.
-If you don't know the answer, just say that you don't know. Don't try to make up an answer.
-Include the page number(s) from the context in your answer if applicable.
+    system_prompt = f"""You are DocuMind, an exceptionally intelligent AI assistant. 
+Answer the user's question clearly and comprehensively.
+
+If relevant retrieved context is provided below, use it to accurately answer the question and cite the page numbers if helpful.
+If the context says "No relevant context found." or does not contain the answer, you MUST use your own general knowledge to answer the question. 
+NEVER say "I don't know because it's not in the context" or "The provided context does not specify". Just answer the question directly.
 
 Context:
 {context}"""

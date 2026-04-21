@@ -11,6 +11,7 @@ from .config import settings
 from .pdf_parser import extract_text_with_metadata
 from .vector_store import process_and_store_documents
 from .rag_pipeline import answer_question_stream
+from .document_analyzer import analyze_document
 
 app = FastAPI(title="DocuMind API", description="AI-Powered Document Intelligence System")
 
@@ -71,6 +72,9 @@ async def upload_documents(background_tasks: BackgroundTasks, files: List[Upload
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class AnalyzeRequest(BaseModel):
+    filename: str
+
 @app.post("/query/")
 async def query_document(request: QueryRequest):
     try:
@@ -81,6 +85,25 @@ async def query_document(request: QueryRequest):
         )
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze/")
+async def analyze_document_endpoint(request: AnalyzeRequest):
+    try:
+        result = analyze_document(request.filename)
+        return result
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="File not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/documents/")
+async def list_documents():
+    try:
+        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+        files = [f for f in os.listdir(settings.UPLOAD_DIR) if f.endswith('.pdf')]
+        return {"documents": files}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
