@@ -1,7 +1,7 @@
 import os
 import shutil
 from typing import List, Optional, Dict
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
@@ -28,7 +28,7 @@ class QueryRequest(BaseModel):
     history: Optional[List[Dict[str, str]]] = None
 
 @app.post("/upload/")
-async def upload_documents(files: List[UploadFile] = File(...)):
+async def upload_documents(background_tasks: BackgroundTasks, files: List[UploadFile] = File(...)):
     total_pages = 0
     all_documents = []
     
@@ -60,11 +60,11 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         raise HTTPException(status_code=400, detail="No valid PDF documents processed.")
         
     try:
-        # Store in ChromaDB and raw DB
-        process_and_store_documents(all_documents)
+        # Store in ChromaDB and raw DB in the background
+        background_tasks.add_task(process_and_store_documents, all_documents)
         
         return {
-            "message": f"Successfully processed {len(files)} file(s)", 
+            "message": f"Successfully processing {len(files)} file(s) in background", 
             "pages_processed": total_pages,
             "files": [f.filename for f in files]
         }
@@ -92,9 +92,6 @@ async def health_check():
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/docs", StaticFiles(directory=settings.UPLOAD_DIR), name="docs")
 
-# Serve the React Frontend (Optional, assuming you run Vite directly in dev)
 @app.get("/")
-async def serve_frontend():
-    return FileResponse("static/index.html")
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
+async def root():
+    return {"message": "DocuMind API is running successfully. Please use http://localhost:5173 for the frontend UI."}

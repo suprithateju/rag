@@ -2,36 +2,22 @@ import json
 from .config import settings
 from .vector_store import get_retriever
 from groq import Groq
-from sentence_transformers import CrossEncoder
 
-# Initialize Reranker globally
+# No reranker needed for super fast mode
 reranker = None
-try:
-    reranker = CrossEncoder(settings.RERANKER_MODEL)
-except Exception as e:
-    print(f"Failed to load reranker: {e}")
 
 def answer_question_stream(query: str, history: list = None, collection_name: str = "documind"):
-    retriever = get_retriever(collection_name, k=10)
+    retriever = get_retriever(collection_name, k=4)
     if not retriever:
         raise ValueError("Vector store not found. Please upload and process a document first.")
         
-    # 1. Retrieve Candidate Documents (Top 10 from Ensemble)
+    # 1. Retrieve Candidate Documents (Top 4 from Ensemble)
     source_docs = retriever.invoke(query)
     
-    # 2. Rerank using CrossEncoder
+    # 2. Extract Top Results (Skipping heavy CrossEncoder for speed)
     sources = []
     if source_docs:
-        if reranker and len(source_docs) > 1:
-            pairs = [[query, doc.page_content] for doc in source_docs]
-            scores = reranker.predict(pairs)
-            
-            # Sort documents by score descending
-            scored_docs = sorted(zip(scores, source_docs), key=lambda x: x[0], reverse=True)
-            # Take top 3
-            top_docs = [doc for score, doc in scored_docs[:3]]
-        else:
-            top_docs = source_docs[:3]
+        top_docs = source_docs[:3]
             
         context_parts = []
         for doc in top_docs:
@@ -67,20 +53,25 @@ Context:
     
     # 4. Stream LLM Response
     if not settings.GROQ_API_KEY:
-        raise ValueError("GROQ_API_KEY is not set. Please check your .env file.")
+        yield json.dumps({"type": "sources", "data": sources}) + "\n"
+        yield "⚠️ **System Configuration Error**\n\nThe LLM API Key is missing. I cannot generate an answer without it.\n\nPlease create a `.env` file in your `rag` directory and add your key like this:\n`GROQ_API_KEY=gsk_your_key_here`\n\n*(Note: After saving the .env file, restart your backend server)*."
+        return
         
     client = Groq(api_key=settings.GROQ_API_KEY)
     
     # Yield sources as the very first chunk (encoded as JSON)
     yield json.dumps({"type": "sources", "data": sources}) + "\n"
     
-    stream = client.chat.completions.create(
-        messages=messages,
-        model=settings.LLM_MODEL,
-        temperature=0.0,
-        stream=True
-    )
-    
-    for chunk in stream:
-        if chunk.choices[0].delta.content is not None:
-            yield chunk.choices[0].delta.content
+    try:
+        stream = client.chat.completions.create(
+            messages=messages,
+            model=settings.LLM_MODEL,
+            temperature=0.0,
+            stream=True
+        )
+        
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                yield chunk.choices[0].delta.content
+    except Exception as e:
+        yield f"\n\n⚠️ **LLM Generation Error**: {str(e)}"

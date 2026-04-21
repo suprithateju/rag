@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://127.0.0.1:8000';
 
 export const uploadDocument = async (files) => {
   const formData = new FormData();
@@ -15,17 +15,21 @@ export const uploadDocument = async (files) => {
   }
 
   try {
-    const response = await axios.post(`${API_URL}/upload/`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    const response = await fetch(`${API_URL}/upload/`, {
+      method: 'POST',
+      body: formData,
     });
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.detail || 'Upload failed');
+    
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const detail = errorData.detail;
+        const errorMsg = Array.isArray(detail) ? JSON.stringify(detail) : (detail || 'Upload failed');
+        throw new Error(errorMsg);
     }
-    throw new Error('Could not connect to the server');
+    
+    return await response.json();
+  } catch (error) {
+    throw new Error(error.message || 'Could not connect to the server');
   }
 };
 
