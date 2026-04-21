@@ -1,18 +1,20 @@
+import os
+import shutil
+from typing import List, Optional, Dict
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
-import os
-import shutil
 
+from .config import settings
 from .pdf_parser import extract_text_with_metadata
 from .vector_store import process_and_store_documents
-from .rag_pipeline import answer_question
+from .rag_pipeline import answer_question_stream
 
 app = FastAPI(title="DocuMind API", description="AI-Powered Document Intelligence System")
 
-# Configure CORS for Streamlit
+# Configure CORS for React
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # In production, restrict this
@@ -23,40 +25,61 @@ app.add_middleware(
 
 class QueryRequest(BaseModel):
     query: str
+    history: Optional[List[Dict[str, str]]] = None
 
 @app.post("/upload/")
-async def upload_document(file: UploadFile = File(...)):
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
-        
-    # Save the file temporarily
-    temp_file_path = f"temp_{file.filename}"
-    with open(temp_file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+async def upload_documents(files: List[UploadFile] = File(...)):
+    total_pages = 0
+    all_documents = []
+    
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    
+    for file in files:
+        if not file.filename.endswith(".pdf"):
+            continue
+            
+        # Save the file permanently for PDF viewer
+        dest_path = os.path.join(settings.UPLOAD_DIR, file.filename)
+        with open(dest_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        try:
+            # Extract text
+            documents = extract_text_with_metadata(dest_path)
+            
+            # Using just filename as source metadata for better UI display
+            for doc in documents:
+                doc["metadata"]["source"] = file.filename
+                
+            all_documents.extend(documents)
+            total_pages += len(documents)
+        except Exception as e:
+            print(f"Error processing {file.filename}: {e}")
+            
+    if not all_documents:
+        raise HTTPException(status_code=400, detail="No valid PDF documents processed.")
         
     try:
-        # Extract text
-        documents = extract_text_with_metadata(temp_file_path)
+        # Store in ChromaDB and raw DB
+        process_and_store_documents(all_documents)
         
-        # Store in ChromaDB
-        process_and_store_documents(documents)
-        
-        # Return success with number of pages extracted
-        return {"message": f"Successfully processed {file.filename}", "pages_processed": len(documents)}
+        return {
+            "message": f"Successfully processed {len(files)} file(s)", 
+            "pages_processed": total_pages,
+            "files": [f.filename for f in files]
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # Clean up temp file
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
 
 @app.post("/query/")
 async def query_document(request: QueryRequest):
     try:
-        response = answer_question(request.query)
-        return response
+        # Use StreamingResponse to stream from generator
+        return StreamingResponse(
+            answer_question_stream(request.query, history=request.history),
+            media_type="text/event-stream"
+        )
     except ValueError as ve:
-        # Specifically catch ValueErrors like "Vector store not found"
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -65,7 +88,11 @@ async def query_document(request: QueryRequest):
 async def health_check():
     return {"status": "ok"}
 
-# Serve the React Frontend
+# Serve the uploaded raw PDFs
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+app.mount("/docs", StaticFiles(directory=settings.UPLOAD_DIR), name="docs")
+
+# Serve the React Frontend (Optional, assuming you run Vite directly in dev)
 @app.get("/")
 async def serve_frontend():
     return FileResponse("static/index.html")
