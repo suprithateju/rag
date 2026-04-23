@@ -1,10 +1,8 @@
 import os
 import json
 from groq import Groq
-from backend.config import Settings
-from backend.pdf_parser import extract_text_with_metadata
-
-settings = Settings()
+from config import settings
+from pdf_parser import extract_text_with_metadata
 
 def analyze_document(filename: str):
     """
@@ -20,10 +18,16 @@ def analyze_document(filename: str):
         raise FileNotFoundError(f"Document {filename} not found.")
 
     # 2. Extract Document Content (Limit to first 10 pages for cost/context speed)
-    documents = extract_text_with_metadata(filepath)
-    
-    docs_to_analyze = documents[:10]  # Only process the first 10 pages
-    extracted_text = "\n".join([doc["text"] for doc in docs_to_analyze])
+    if filename.endswith(".pdf"):
+        documents = extract_text_with_metadata(filepath)
+        docs_to_analyze = documents[:10]  # Only process the first 10 pages
+        extracted_text = "\n".join([doc["text"] for doc in docs_to_analyze])
+    else:
+        # It's a .txt file from a URL scrape
+        with open(filepath, "r", encoding="utf-8") as f:
+            text = f.read()
+            # Limit to roughly 30000 characters to match the 10 pages limit
+            extracted_text = text[:30000]
     
     # 3. Create strict JSON prompt for Groq
     prompt = f"""
@@ -40,7 +44,7 @@ def analyze_document(filename: str):
                 "options": ["Option A", "Option B", "Option C", "Option D"],
                 "answer": "The exact string of the correct option"
             }},
-            // Generate exactly 3 quiz questions
+            // Generate exactly 5 multiple choice questions
         ]
     }}
     

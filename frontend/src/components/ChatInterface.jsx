@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Bot, Loader2, Info, ChevronDown, ChevronUp, FileSearch, Sparkles } from 'lucide-react';
+import { Send, User, Bot, Loader2, Info, ChevronDown, ChevronUp, FileSearch, Sparkles, Mic, Lightbulb } from 'lucide-react';
 import { queryDocumentStream } from '../api';
 
 const SourceCitation = ({ source, index, onPdfView }) => {
@@ -46,7 +46,36 @@ const ChatInterface = ({ onPdfView }) => {
   const [query, setQuery] = useState('');
   const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef(null);
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const speechSupported = !!SpeechRecognition;
+
+  const toggleListening = () => {
+      if (!speechSupported) return alert("Your browser doesn't support speech recognition.");
+      
+      if (isListening) {
+          setIsListening(false);
+          return;
+      }
+      
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      
+      recognition.onstart = () => setIsListening(true);
+      recognition.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          setQuery(prev => prev ? prev + ' ' + transcript : transcript);
+          setIsListening(false);
+      };
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+      
+      recognition.start();
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -190,13 +219,39 @@ const ChatInterface = ({ onPdfView }) => {
                               <Loader2 className="w-5 h-5 animate-spin shrink-0" /> Conjuring Answer...
                           </div>
                       ) : (
-                          <div className="whitespace-pre-wrap">{msg.content}</div>
+                          <div className="whitespace-pre-wrap">
+                            {msg.content.split('---FOLLOWUPS---')[0]}
+                          </div>
                       )}
 
-                      {msg.isStreaming && msg.content && (
+                      {msg.isStreaming && msg.content && !msg.content.includes('---FOLLOWUPS---') && (
                           <span className="inline-block w-3 h-5 ml-2 bg-gradient-to-t from-fuchsia-400 to-cyan-400 animate-pulse align-middle rounded-full"></span>
                       )}
                     </div>
+
+                    {/* Follow up chips */}
+                    {!msg.isStreaming && msg.content && msg.content.includes('---FOLLOWUPS---') && (
+                      <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in duration-500">
+                        {msg.content.split('---FOLLOWUPS---')[1].trim().split('\n').filter(q => q.trim().length > 0).map((question, qIdx) => {
+                           const cleanQuestion = question.replace(/^\d+\.\s*/, '').trim();
+                           return (
+                             <button
+                               key={qIdx}
+                               onClick={() => {
+                                 setQuery(cleanQuestion);
+                                 setTimeout(() => {
+                                   document.getElementById('chat-submit-btn').click();
+                                 }, 100);
+                               }}
+                               className="px-4 py-2 bg-white/60 hover:bg-white backdrop-blur-sm border border-fuchsia-200 text-fuchsia-700 text-[13px] font-bold rounded-full shadow-sm hover:shadow-md transition-all flex items-center gap-2 hover:-translate-y-0.5"
+                             >
+                               <Lightbulb className="w-3.5 h-3.5" />
+                               {cleanQuestion}
+                             </button>
+                           );
+                        })}
+                      </div>
+                    )}
 
                     {/* Sources intentionally removed as requested by user */}
                   </div>
@@ -216,15 +271,28 @@ const ChatInterface = ({ onPdfView }) => {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Type a spell... (Ask a question about your documents)"
             disabled={isLoading}
-            className="w-full pl-6 pr-16 py-4 rounded-[28px] bg-transparent focus:outline-none transition-all text-slate-800 placeholder:text-slate-400 disabled:text-slate-400 font-bold text-[16px]"
+            className="w-full pl-6 pr-32 py-4 rounded-[28px] bg-transparent focus:outline-none transition-all text-slate-800 placeholder:text-slate-400 disabled:text-slate-400 font-bold text-[16px]"
           />
-          <button
-            type="submit"
-            disabled={!query.trim() || isLoading}
-            className="absolute right-3 top-3 bottom-3 aspect-square bg-gradient-to-br from-fuchsia-500 to-cyan-500 text-white rounded-[20px] hover:shadow-[0_0_20px_rgba(217,70,239,0.5)] transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center p-2 transform group-focus-within:scale-105"
-          >
-            <Send className="w-5 h-5 ml-0.5" />
-          </button>
+          <div className="absolute right-3 top-3 bottom-3 flex items-center gap-2">
+            {speechSupported && (
+              <button
+                type="button"
+                onClick={toggleListening}
+                className={`aspect-square rounded-[20px] transition-all flex items-center justify-center p-2 transform group-focus-within:scale-105 ${isListening ? 'bg-red-100 text-red-500 animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                title="Voice Input"
+              >
+                <Mic className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              id="chat-submit-btn"
+              type="submit"
+              disabled={!query.trim() || isLoading}
+              className="aspect-square bg-gradient-to-br from-fuchsia-500 to-cyan-500 text-white rounded-[20px] hover:shadow-[0_0_20px_rgba(217,70,239,0.5)] transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center p-2 transform group-focus-within:scale-105"
+            >
+              <Send className="w-5 h-5 ml-0.5" />
+            </button>
+          </div>
         </form>
       </div>
 

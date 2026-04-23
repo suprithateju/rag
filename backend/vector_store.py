@@ -3,14 +3,18 @@ from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from .config import settings
+from config import settings
+
+import threading
 
 _embeddings_instance = None
+_embeddings_lock = threading.Lock()
 
 def get_embeddings_model():
     global _embeddings_instance
-    if _embeddings_instance is None:
-        _embeddings_instance = HuggingFaceEmbeddings(model_name=settings.EMBEDDING_MODEL)
+    with _embeddings_lock:
+        if _embeddings_instance is None:
+            _embeddings_instance = HuggingFaceEmbeddings(model_name=settings.EMBEDDING_MODEL)
     return _embeddings_instance
 
 def process_and_store_documents(documents: list, collection_name: str = "documind"):
@@ -51,10 +55,10 @@ def get_retriever(collection_name: str = "documind", k: int = 4):
     """
     Returns the Chroma Retriever.
     """
-    embeddings = get_embeddings_model()
-    
     if not os.path.exists(settings.CHROMA_DB_DIR):
         return None
+        
+    embeddings = get_embeddings_model()
         
     vector_store = Chroma(
         persist_directory=settings.CHROMA_DB_DIR,

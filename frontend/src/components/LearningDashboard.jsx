@@ -1,17 +1,50 @@
-import React, { useState } from 'react';
-import { BookOpen, List, CheckCircle, HelpCircle, ArrowRight, Brain, Lightbulb } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { BookOpen, List, CheckCircle, HelpCircle, ArrowRight, Brain, Lightbulb, Download } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 
 const LearningDashboard = ({ data }) => {
   const [activeTab, setActiveTab] = useState('summary');
   const [quizAnswers, setQuizAnswers] = useState({});
+  const dashboardRef = useRef(null);
 
   if (!data) return null;
+
+  const handleExportPDF = () => {
+    // Show all tabs temporarily for export by removing height constraints and showing all content
+    // To keep it simple, we just export the current active tab.
+    const element = dashboardRef.current;
+    if (!element) return;
+    
+    const opt = {
+      margin:       0.5,
+      filename:     'Learning_Study_Guide.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    
+    html2pdf().set(opt).from(element).save();
+  };
 
   const handleQuizSelect = (qIndex, selectedOption) => {
     setQuizAnswers(prev => ({
       ...prev,
       [qIndex]: selectedOption
     }));
+  };
+
+  const totalQuestions = data.quiz ? data.quiz.length : 0;
+  const answeredCount = Object.keys(quizAnswers).length;
+  const isQuizComplete = answeredCount === totalQuestions && totalQuestions > 0;
+  
+  const calculateScore = () => {
+      let score = 0;
+      data.quiz.forEach((q, idx) => {
+          if (quizAnswers[idx] === q.answer) {
+              score++;
+          }
+      });
+      return score;
   };
 
   return (
@@ -45,10 +78,16 @@ const LearningDashboard = ({ data }) => {
                 <BookOpen className="w-4 h-4" /> Transcript
             </button>
         </div>
+        <button 
+            onClick={handleExportPDF}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-fuchsia-500 to-purple-600 text-white border border-white/20 rounded-xl shadow-[0_10px_20px_rgba(217,70,239,0.3)] font-black hover:scale-105 transition-all"
+        >
+            <Download className="w-4 h-4" /> Export Study Guide
+        </button>
       </header>
 
       {/* Content Area */}
-      <div className="p-8 md:p-12 w-full max-w-5xl mx-auto pb-32 animate-in fade-in duration-500">
+      <div className="p-8 md:p-12 w-full max-w-5xl mx-auto pb-32 animate-in fade-in duration-500" ref={dashboardRef}>
         
         {/* SUMMARY TAB */}
         {activeTab === 'summary' && (
@@ -160,6 +199,18 @@ const LearningDashboard = ({ data }) => {
                         );
                     })}
                 </div>
+
+                {isQuizComplete && (
+                    <div className="mt-10 bg-gradient-to-br from-fuchsia-100 to-purple-100 border border-fuchsia-200 rounded-[2rem] p-10 text-center shadow-md animate-in zoom-in-95 duration-500">
+                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border-[6px] border-fuchsia-200">
+                            <span className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-600 to-purple-600">
+                                {calculateScore()}/{totalQuestions}
+                            </span>
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-800 tracking-tight">Knowledge Check Complete!</h3>
+                        <p className="text-slate-600 font-bold mt-3 text-[16px]">Excellent work testing your memory. Ready to review the transcript again?</p>
+                    </div>
+                )}
             </div>
         )}
 

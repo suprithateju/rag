@@ -33,6 +33,25 @@ export const uploadDocument = async (files) => {
   }
 };
 
+export const uploadUrl = async (url) => {
+  try {
+    const response = await fetch(`${API_URL}/upload-url/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'URL upload failed');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    throw new Error(error.message || 'Could not connect to the server');
+  }
+};
+
 export const queryDocumentStream = async (query, history, onChunk, onSources) => {
   try {
     const response = await fetch(`${API_URL}/query/`, {

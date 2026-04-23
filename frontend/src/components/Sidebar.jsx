@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Files, Database, Sparkles } from 'lucide-react';
-import { uploadDocument, fetchDocuments } from '../api';
+import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Files, Database, Sparkles, Link as LinkIcon, Globe } from 'lucide-react';
+import { uploadDocument, fetchDocuments, uploadUrl } from '../api';
 
 const Sidebar = ({ onUploadSuccess, onAnalyzeFile }) => {
   const [files, setFiles] = useState([]);
+  const [url, setUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [status, setStatus] = useState(null); 
   const [uploadedDocs, setUploadedDocs] = useState([]);
@@ -37,26 +38,39 @@ const Sidebar = ({ onUploadSuccess, onAnalyzeFile }) => {
   };
 
   const handleUpload = async () => {
-    if (files.length === 0) return;
+    if (files.length === 0 && !url.trim()) return;
 
     setIsUploading(true);
     setStatus(null);
 
     try {
-      const data = await uploadDocument(files);
-      setStatus({ 
-        type: 'success', 
-        message: `Indexed ${data.pages_processed || 'all'} pages! ✨` 
-      });
-      await loadDocuments();
-      
-      // Magic: Automatically generate dashboard for the uploaded file!
-      if (onAnalyzeFile && files.length > 0) {
-          onAnalyzeFile(files[0].name);
+      if (files.length > 0) {
+        const data = await uploadDocument(files);
+        setStatus({ 
+          type: 'success', 
+          message: `Indexed ${data.pages_processed || 'all'} pages! ✨` 
+        });
+        await loadDocuments();
+        
+        if (onAnalyzeFile && files.length > 0) {
+            onAnalyzeFile(files[0].name);
+        }
+        setFiles([]); 
+      } else if (url.trim()) {
+        const data = await uploadUrl(url.trim());
+        setStatus({ 
+          type: 'success', 
+          message: `Indexed webpage! ✨` 
+        });
+        await loadDocuments();
+        
+        if (onAnalyzeFile && data.files && data.files.length > 0) {
+            onAnalyzeFile(data.files[0]);
+        }
+        setUrl("");
       }
       
       if (onUploadSuccess) onUploadSuccess();
-      setFiles([]); 
     } catch (error) {
       setStatus({ type: 'error', message: error.message });
     } finally {
@@ -114,8 +128,31 @@ const Sidebar = ({ onUploadSuccess, onAnalyzeFile }) => {
           )}
         </div>
         
+        <div className="mt-4 flex items-center justify-between text-slate-400 font-bold text-[10px] uppercase tracking-widest px-1">
+          <div className="h-px bg-white/60 flex-1"></div>
+          <span className="px-2">OR</span>
+          <div className="h-px bg-white/60 flex-1"></div>
+        </div>
+
+        {/* URL Input */}
+        <div className="mt-4 relative group">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <LinkIcon className="h-4 w-4 text-slate-400 group-focus-within:text-fuchsia-500 transition-colors" />
+          </div>
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => {
+                setUrl(e.target.value);
+                if (e.target.value) setFiles([]); // Clear files if URL is typed
+            }}
+            placeholder="Paste a website URL..."
+            className="block w-full pl-10 pr-3 py-3 border border-white/60 rounded-2xl bg-white/60 backdrop-blur-sm text-[13px] font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-400 focus:border-transparent focus:bg-white transition-all shadow-sm"
+          />
+        </div>
+        
         {/* Action Button */}
-        {files.length > 0 && (
+        {(files.length > 0 || url.trim()) && (
           <div className="mt-4 animate-in slide-in-from-bottom-4 duration-500 shrink-0">
             <button
               onClick={handleUpload}
@@ -151,20 +188,22 @@ const Sidebar = ({ onUploadSuccess, onAnalyzeFile }) => {
             <div className="mt-8 flex-1">
                <h2 className="text-[11px] font-black tracking-widest text-slate-400 uppercase mb-3 px-1">Available Documents</h2>
                <div className="space-y-3">
-                   {uploadedDocs.map((doc, idx) => (
+                   {uploadedDocs.map((doc, idx) => {
+                       const isWebpage = doc.endsWith('.txt');
+                       return (
                        <div key={idx} className="bg-white/60 border border-white p-3 rounded-2xl shadow-sm flex flex-col gap-3 group hover:bg-white/90 transition-colors">
                            <div className="flex items-center gap-2 overflow-hidden">
-                               <FileText className="w-4 h-4 text-purple-400 shrink-0" />
-                               <span className="text-[13px] font-bold text-slate-700 truncate">{doc}</span>
+                               {isWebpage ? <Globe className="w-4 h-4 text-cyan-500 shrink-0" /> : <FileText className="w-4 h-4 text-purple-400 shrink-0" />}
+                               <span className="text-[13px] font-bold text-slate-700 truncate" title={doc}>{isWebpage ? doc.replace('.txt', '') : doc}</span>
                            </div>
                            <button 
                                onClick={() => onAnalyzeFile && onAnalyzeFile(doc)}
-                               className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-bold text-[12px] py-2 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-lg hover:shadow-cyan-500/30 transition-all opacity-90 group-hover:opacity-100"
+                               className={`w-full text-white font-bold text-[12px] py-2 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-lg transition-all opacity-90 group-hover:opacity-100 ${isWebpage ? 'bg-gradient-to-r from-teal-400 to-emerald-500 hover:shadow-emerald-500/30' : 'bg-gradient-to-r from-cyan-400 to-blue-500 hover:shadow-cyan-500/30'}`}
                            >
-                               <Sparkles className="w-3.5 h-3.5" /> Analyze PDF
+                               <Sparkles className="w-3.5 h-3.5" /> Analyze {isWebpage ? 'Webpage' : 'PDF'}
                            </button>
                        </div>
-                   ))}
+                   )})}
                </div>
             </div>
         )}

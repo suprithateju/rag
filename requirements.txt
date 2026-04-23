@@ -11,3 +11,4 @@ python-dotenv
 pydantic
 requests
 python-multipart
+beautifulsoup4
