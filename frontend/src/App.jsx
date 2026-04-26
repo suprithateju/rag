@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import LearningDashboard from './components/LearningDashboard';
+import AuthPage from './components/AuthPage';
 import { analyzeDocument } from './api';
 import { Loader2, MessageSquare } from 'lucide-react';
+import { AuthProvider, useAuth } from './AuthContext';
 
-function App() {
+function AppContent() {
+  const { user, token } = useAuth();
   const [selectedPdf, setSelectedPdf] = useState(null);
   const [viewMode, setViewMode] = useState('chat'); // 'chat' | 'dashboard'
   const [analysisData, setAnalysisData] = useState(null);
@@ -29,6 +32,10 @@ function App() {
     }
   };
 
+  if (!user) {
+    return <AuthPage />;
+  }
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-8 bg-slate-900 relative overflow-hidden font-outfit selection:bg-fuchsia-500/30 selection:text-fuchsia-900">
       
@@ -45,17 +52,11 @@ function App() {
         <div className="flex-1 flex max-w-full min-w-0 transition-all duration-500 relative">
             
             {/* View Switcher Overlay Action */}
-            {analysisData && !isAnalyzing && (
+            {analysisData && !isAnalyzing && viewMode === 'chat' && (
                 <div className="absolute top-5 right-8 z-50">
-                    {viewMode === 'dashboard' ? (
-                        <button onClick={() => setViewMode('chat')} className="flex items-center gap-2 px-5 py-2.5 bg-white/80 backdrop-blur-md border border-white rounded-xl shadow-lg font-bold text-slate-700 hover:text-purple-600 transition-all hover:scale-105">
-                            <MessageSquare className="w-4 h-4" /> Back to Chat
-                        </button>
-                    ) : (
-                        <button onClick={() => setViewMode('dashboard')} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white border border-white/20 rounded-xl shadow-[0_10px_20px_rgba(217,70,239,0.3)] font-black hover:scale-105 transition-all">
-                            View Dashboard ✨
-                        </button>
-                    )}
+                    <button onClick={() => setViewMode('dashboard')} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white border border-white/20 rounded-xl shadow-[0_10px_20px_rgba(217,70,239,0.3)] font-black hover:scale-105 transition-all">
+                        View Dashboard ✨
+                    </button>
                 </div>
             )}
 
@@ -66,7 +67,7 @@ function App() {
                      <p className="text-slate-500 font-bold mt-2 text-[15px]">Reading document and generating intelligent summaries.</p>
                 </div>
             ) : viewMode === 'dashboard' ? (
-                <LearningDashboard data={analysisData} />
+                <LearningDashboard data={analysisData} onClose={() => setViewMode('chat')} />
             ) : (
                 <ChatInterface onPdfView={handlePdfView} />
             )}
@@ -101,7 +102,7 @@ function App() {
                       <p className="text-[13px] tracking-widest uppercase font-black text-slate-300">Loading Document</p>
                   </div>
                   <iframe 
-                    src={`http://localhost:8000/docs/${encodeURIComponent(selectedPdf.source)}#page=${selectedPdf.page}&view=FitH`} 
+                    src={`http://127.0.0.1:8000/docs/${encodeURIComponent(selectedPdf.source)}?token=${token}#page=${selectedPdf.page}&view=FitH`} 
                     className="w-full h-full border-none bg-transparent relative z-10"
                     title="PDF Viewer"
                   ></iframe>
@@ -112,6 +113,14 @@ function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

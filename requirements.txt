@@ -12,3 +12,6 @@ pydantic
 requests
 python-multipart
 beautifulsoup4
+sqlalchemy
+passlib[bcrypt]
+python-jose[cryptography]

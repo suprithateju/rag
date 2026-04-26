@@ -1,6 +1,48 @@
-import axios from 'axios';
-
 const API_URL = 'http://127.0.0.1:8000';
+
+const getAuthHeaders = (isFormData = false) => {
+  const token = localStorage.getItem('token');
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return headers;
+};
+
+export const registerUser = async (username, email, password) => {
+  const response = await fetch(`${API_URL}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, email, password }),
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Registration failed');
+  }
+  return await response.json();
+};
+
+export const loginUser = async (username, password) => {
+  const formData = new URLSearchParams();
+  formData.append('username', username);
+  formData.append('password', password);
+
+  const response = await fetch(`${API_URL}/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Login failed');
+  }
+  return await response.json();
+};
 
 export const uploadDocument = async (files) => {
   const formData = new FormData();
@@ -17,6 +59,7 @@ export const uploadDocument = async (files) => {
   try {
     const response = await fetch(`${API_URL}/upload/`, {
       method: 'POST',
+      headers: getAuthHeaders(true),
       body: formData,
     });
     
@@ -37,7 +80,7 @@ export const uploadUrl = async (url) => {
   try {
     const response = await fetch(`${API_URL}/upload-url/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ url }),
     });
     
@@ -56,7 +99,7 @@ export const queryDocumentStream = async (query, history, onChunk, onSources) =>
   try {
     const response = await fetch(`${API_URL}/query/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ query, history }),
     });
 
@@ -118,7 +161,7 @@ export const analyzeDocument = async (filename) => {
   try {
     const response = await fetch(`${API_URL}/analyze/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ filename }),
     });
 
@@ -135,7 +178,9 @@ export const analyzeDocument = async (filename) => {
 
 export const fetchDocuments = async () => {
     try {
-        const response = await fetch(`${API_URL}/documents/`);
+        const response = await fetch(`${API_URL}/documents/`, {
+            headers: getAuthHeaders()
+        });
         if (!response.ok) throw new Error("Failed to fetch documents");
         return await response.json();
     } catch (error) {

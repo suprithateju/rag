@@ -1,29 +1,37 @@
 import React, { useState, useRef } from 'react';
-import { BookOpen, List, CheckCircle, HelpCircle, ArrowRight, Brain, Lightbulb, Download } from 'lucide-react';
+import { BookOpen, List, CheckCircle, HelpCircle, ArrowRight, Brain, Lightbulb, Download, MessageSquare } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 
-const LearningDashboard = ({ data }) => {
+const LearningDashboard = ({ data, onClose }) => {
   const [activeTab, setActiveTab] = useState('summary');
   const [quizAnswers, setQuizAnswers] = useState({});
+  const [isExporting, setIsExporting] = useState(false);
   const dashboardRef = useRef(null);
 
   if (!data) return null;
 
   const handleExportPDF = () => {
-    // Show all tabs temporarily for export by removing height constraints and showing all content
-    // To keep it simple, we just export the current active tab.
-    const element = dashboardRef.current;
-    if (!element) return;
+    setIsExporting(true);
     
-    const opt = {
-      margin:       0.5,
-      filename:     'Learning_Study_Guide.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    
-    html2pdf().set(opt).from(element).save();
+    setTimeout(() => {
+        const element = dashboardRef.current;
+        if (!element) {
+            setIsExporting(false);
+            return;
+        }
+        
+        const opt = {
+          margin:       0.5,
+          filename:     'Learning_Study_Guide.pdf',
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true, windowWidth: element.scrollWidth },
+          jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+        
+        html2pdf().set(opt).from(element).save().then(() => {
+            setIsExporting(false);
+        });
+    }, 300); // 300ms to ensure all animations and DOM updates are done
   };
 
   const handleQuizSelect = (qIndex, selectedOption) => {
@@ -78,19 +86,27 @@ const LearningDashboard = ({ data }) => {
                 <BookOpen className="w-4 h-4" /> Transcript
             </button>
         </div>
-        <button 
-            onClick={handleExportPDF}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-fuchsia-500 to-purple-600 text-white border border-white/20 rounded-xl shadow-[0_10px_20px_rgba(217,70,239,0.3)] font-black hover:scale-105 transition-all"
-        >
-            <Download className="w-4 h-4" /> Export Study Guide
-        </button>
+        <div className="flex items-center gap-3">
+            <button 
+                onClick={handleExportPDF}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-fuchsia-500 to-purple-600 text-white border border-white/20 rounded-xl shadow-[0_10px_20px_rgba(217,70,239,0.3)] font-black hover:scale-105 transition-all"
+            >
+                <Download className="w-4 h-4" /> Export Study Guide
+            </button>
+            <button 
+                onClick={onClose}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white/80 backdrop-blur-md border border-slate-200 rounded-xl shadow-sm font-bold text-slate-700 hover:text-purple-600 hover:shadow-md transition-all hover:scale-105"
+            >
+                <MessageSquare className="w-4 h-4" /> Back to Chat
+            </button>
+        </div>
       </header>
 
       {/* Content Area */}
       <div className="p-8 md:p-12 w-full max-w-5xl mx-auto pb-32 animate-in fade-in duration-500" ref={dashboardRef}>
         
         {/* SUMMARY TAB */}
-        {activeTab === 'summary' && (
+        {(activeTab === 'summary' || isExporting) && (
             <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-10 shadow-xl border border-white/60 animate-in zoom-in-95 duration-300">
                 <div className="flex items-center gap-4 mb-8 border-b border-slate-100 pb-6">
                     <div className="p-3 bg-gradient-to-br from-fuchsia-100 to-purple-100 text-fuchsia-600 rounded-2xl">
@@ -110,8 +126,8 @@ const LearningDashboard = ({ data }) => {
         )}
 
         {/* TOPICS TAB */}
-        {activeTab === 'topics' && (
-            <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-10 shadow-xl border border-white/60 animate-in zoom-in-95 duration-300">
+        {(activeTab === 'topics' || isExporting) && (
+            <div className={`bg-white/80 backdrop-blur-xl rounded-[2rem] p-10 shadow-xl border border-white/60 animate-in zoom-in-95 duration-300 ${isExporting ? 'mt-8' : ''}`}>
                 <div className="flex items-center gap-4 mb-8 border-b border-slate-100 pb-6">
                     <div className="p-3 bg-gradient-to-br from-cyan-100 to-blue-100 text-cyan-600 rounded-2xl">
                         <List className="w-8 h-8" />
@@ -133,8 +149,8 @@ const LearningDashboard = ({ data }) => {
         )}
 
         {/* QUIZ TAB */}
-        {activeTab === 'quiz' && (
-            <div className="space-y-8 animate-in zoom-in-95 duration-300">
+        {(activeTab === 'quiz' || isExporting) && (
+            <div className={`space-y-8 animate-in zoom-in-95 duration-300 ${isExporting ? 'mt-8' : ''}`}>
                 <div className="bg-gradient-to-br from-purple-600 to-fuchsia-600 rounded-[2rem] p-8 shadow-xl text-white">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-white/20 rounded-2xl">
@@ -215,8 +231,8 @@ const LearningDashboard = ({ data }) => {
         )}
 
         {/* TRANSCRIPT TAB */}
-        {activeTab === 'transcript' && (
-            <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-10 shadow-xl border border-white/60 animate-in zoom-in-95 duration-300">
+        {(activeTab === 'transcript' || isExporting) && (
+            <div className={`bg-white/80 backdrop-blur-xl rounded-[2rem] p-10 shadow-xl border border-white/60 animate-in zoom-in-95 duration-300 ${isExporting ? 'mt-8' : ''}`}>
                 <div className="flex items-center gap-4 mb-8 border-b border-slate-100 pb-6">
                     <div className="p-3 bg-gradient-to-br from-slate-700 to-slate-900 text-white rounded-2xl">
                         <BookOpen className="w-8 h-8" />
@@ -226,7 +242,7 @@ const LearningDashboard = ({ data }) => {
                         <p className="text-slate-500 font-medium mt-1">The exact text extracted from the document.</p>
                     </div>
                 </div>
-                <div className="text-[15px] leading-relaxed text-slate-600 space-y-6 font-mono whitespace-pre-wrap bg-slate-50 p-6 rounded-2xl border border-slate-100 h-[600px] overflow-y-auto custom-scrollbar">
+                <div className={`text-[15px] leading-relaxed text-slate-600 space-y-6 font-mono whitespace-pre-wrap bg-slate-50 p-6 rounded-2xl border border-slate-100 ${isExporting ? '' : 'h-[600px] overflow-y-auto custom-scrollbar'}`}>
                     {data.transcript || 'No transcript available.'}
                 </div>
             </div>

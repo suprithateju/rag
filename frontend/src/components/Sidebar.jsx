@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Files, Database, Sparkles, Link as LinkIcon, Globe } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Files, Database, Sparkles, Link as LinkIcon, Globe, LogOut } from 'lucide-react';
 import { uploadDocument, fetchDocuments, uploadUrl } from '../api';
+import { useAuth } from '../AuthContext';
 
 const Sidebar = ({ onUploadSuccess, onAnalyzeFile }) => {
   const [files, setFiles] = useState([]);
@@ -9,6 +10,7 @@ const Sidebar = ({ onUploadSuccess, onAnalyzeFile }) => {
   const [status, setStatus] = useState(null); 
   const [uploadedDocs, setUploadedDocs] = useState([]);
   const fileInputRef = useRef(null);
+  const { user, logout } = useAuth();
 
   const loadDocuments = async () => {
     try {
@@ -211,12 +213,28 @@ const Sidebar = ({ onUploadSuccess, onAnalyzeFile }) => {
       </div>
 
       {/* Footer */}
-      <div className="mt-6 px-1 shrink-0">
-        <div className="bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-white shadow-sm">
-            <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-fuchsia-500 shadow-[0_0_12px_rgba(217,70,239,0.8)] animate-pulse"></div>
-                <span className="text-[11px] font-black tracking-widest text-slate-800 uppercase">System Online</span>
+      <div className="mt-6 px-1 shrink-0 space-y-3">
+        <div className="bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-white shadow-sm flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-slate-200 border border-white flex items-center justify-center text-slate-600 font-bold text-sm shadow-inner uppercase">
+                  {user?.username ? user.username[0] : 'U'}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[13px] font-bold text-slate-800 leading-tight truncate w-24">{user?.username || 'User'}</span>
+                  <span className="text-[10px] font-black tracking-widest text-fuchsia-500 uppercase">Authenticated</span>
+                </div>
             </div>
+            <button 
+              onClick={logout}
+              className="p-2 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-colors border border-transparent hover:border-red-100"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+        </div>
+        <div className="flex items-center justify-center gap-2 mb-1.5 opacity-60">
+            <div className="w-2.5 h-2.5 rounded-full bg-fuchsia-500 shadow-[0_0_12px_rgba(217,70,239,0.8)] animate-pulse"></div>
+            <span className="text-[11px] font-black tracking-widest text-slate-800 uppercase">System Online</span>
         </div>
       </div>
     </div>

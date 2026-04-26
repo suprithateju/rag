@@ -4,7 +4,7 @@ from groq import Groq
 from config import settings
 from pdf_parser import extract_text_with_metadata
 
-def analyze_document(filename: str):
+def analyze_document(filename: str, user_dir: str):
     """
     Extracts text from a local PDF and sends it to Groq to generate a JSON 
     containing a Summary, Key Topics, and a Quiz.
@@ -13,7 +13,7 @@ def analyze_document(filename: str):
         raise ValueError("GROQ_API_KEY is not set.")
 
     # 1. Locate the file in the uploaded_docs directory
-    filepath = os.path.join(settings.UPLOAD_DIR, filename)
+    filepath = os.path.join(user_dir, filename)
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Document {filename} not found.")
 
