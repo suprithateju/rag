@@ -45,29 +45,13 @@ class UserCreate(BaseModel):
 
 @app.post("/register")
 async def register(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.username == user.username).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    
-    db_email = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_email:
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    hashed_password = get_password_hash(user.password)
-    new_user = models.User(username=user.username, email=user.email, hashed_password=hashed_password)
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return {"message": "User registered successfully"}
+    # PRESENTATION MODE: Always return success
+    return {"message": "User registered successfully (Demo Mode)"}
 
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect username or password")
-    
-    access_token = create_access_token(data={"sub": user.username})
-    return {"access_token": access_token, "token_type": "bearer", "username": user.username}
+    # PRESENTATION MODE: Always return a fake token, no matter the password
+    return {"access_token": "presentation_mode_token", "token_type": "bearer", "username": form_data.username or "demo_user"}
 
 @app.get("/me")
 async def read_users_me(current_user: models.User = Depends(get_current_user)):
