@@ -81,7 +81,7 @@ const Sidebar = ({ onUploadSuccess, onAnalyzeFile }) => {
   };
 
   return (
-    <div className="w-[340px] bg-white/40 border-r border-white/60 h-full flex flex-col p-7 z-20 shrink-0 relative overflow-y-auto backdrop-blur-md custom-scrollbar">
+    <div className="w-full lg:w-[340px] bg-white/40 lg:border-r border-b lg:border-b-0 border-white/60 h-auto lg:h-full flex flex-col p-7 z-20 shrink-0 relative overflow-y-visible lg:overflow-y-auto backdrop-blur-md custom-scrollbar">
       
       {/* Brand Header */}
       <div className="flex items-center gap-4 mb-8 px-1 mt-2">

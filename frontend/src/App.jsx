@@ -45,11 +45,11 @@ function AppContent() {
       <div className="absolute -bottom-8 left-20 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-70 animate-blob animation-delay-4000"></div>
 
       {/* Main glass application window */}
-      <div className="w-full max-w-[1600px] h-[92vh] bg-white/90 backdrop-blur-3xl rounded-[2.5rem] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-white/40 flex relative z-10">
+      <div className="w-full max-w-[1600px] h-[92vh] bg-white/90 backdrop-blur-3xl rounded-[2.5rem] overflow-y-auto lg:overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-white/40 flex flex-col lg:flex-row relative z-10 custom-scrollbar">
         
         <Sidebar onAnalyzeFile={handleAnalyzeFile} />
         
-        <div className="flex-1 flex max-w-full min-w-0 transition-all duration-500 relative">
+        <div className="flex-1 flex max-w-full min-w-0 transition-all duration-500 relative min-h-[600px] lg:min-h-0">
             
             {/* View Switcher Overlay Action */}
             {analysisData && !isAnalyzing && viewMode === 'chat' && (

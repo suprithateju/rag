@@ -11,11 +11,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from config import settings
-from pdf_parser import extract_text_with_metadata
-from url_parser import extract_text_from_url
-from vector_store import process_and_store_documents
-from rag_pipeline import answer_question_stream
-from document_analyzer import analyze_document
 
 # Auth and DB imports
 from database import engine, get_db
@@ -91,6 +86,9 @@ async def upload_documents(
     total_pages = 0
     all_documents = []
     
+    from pdf_parser import extract_text_with_metadata
+    from vector_store import process_and_store_documents
+    
     user_upload_dir = os.path.join(settings.UPLOAD_DIR, f"user_{current_user.id}")
     os.makedirs(user_upload_dir, exist_ok=True)
     
@@ -156,6 +154,8 @@ async def upload_url_endpoint(
     dest_path = os.path.join(user_upload_dir, safe_filename)
     
     try:
+        from url_parser import extract_text_from_url
+        from vector_store import process_and_store_documents
         documents = extract_text_from_url(request.url, safe_filename)
         
         if not documents:
@@ -190,6 +190,7 @@ async def query_document(
     current_user: models.User = Depends(get_current_user)
 ):
     try:
+        from rag_pipeline import answer_question_stream
         # Use StreamingResponse to stream from generator
         return StreamingResponse(
             answer_question_stream(
@@ -211,6 +212,7 @@ async def analyze_document_endpoint(
 ):
     user_upload_dir = os.path.join(settings.UPLOAD_DIR, f"user_{current_user.id}")
     try:
+        from document_analyzer import analyze_document
         result = analyze_document(request.filename, user_dir=user_upload_dir)
         return result
     except FileNotFoundError:
