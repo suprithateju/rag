@@ -20,6 +20,11 @@ export const registerUser = async (username, email, password) => {
   });
   
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      window.location.reload();
+      throw new Error('Session expired');
+    }
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.detail || 'Registration failed');
   }
@@ -38,6 +43,11 @@ export const loginUser = async (username, password) => {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      window.location.reload();
+      throw new Error('Session expired');
+    }
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.detail || 'Login failed');
   }
@@ -64,6 +74,11 @@ export const uploadDocument = async (files) => {
     });
     
     if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          window.location.reload();
+          throw new Error('Session expired');
+        }
         const errorData = await response.json().catch(() => ({}));
         const detail = errorData.detail;
         const errorMsg = Array.isArray(detail) ? JSON.stringify(detail) : (detail || 'Upload failed');
@@ -85,6 +100,11 @@ export const uploadUrl = async (url) => {
     });
     
     if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          window.location.reload();
+          throw new Error('Session expired');
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || 'URL upload failed');
     }
@@ -104,6 +124,11 @@ export const queryDocumentStream = async (query, history, onChunk, onSources) =>
     });
 
     if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          window.location.reload();
+          throw new Error('Session expired');
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Query failed');
     }
@@ -181,7 +206,14 @@ export const fetchDocuments = async () => {
         const response = await fetch(`${API_URL}/documents/`, {
             headers: getAuthHeaders()
         });
-        if (!response.ok) throw new Error("Failed to fetch documents");
+        if (!response.ok) {
+            if (response.status === 401) {
+              localStorage.removeItem('token');
+              window.location.reload();
+              throw new Error('Session expired');
+            }
+            throw new Error("Failed to fetch documents");
+        }
         return await response.json();
     } catch (error) {
         throw error;
