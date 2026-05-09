@@ -3,7 +3,7 @@
     <h1 align="center" style="color: white; margin: 0; padding: 0;">✨ DocuMind ✨</h1>
   </div>
   <h3>Intelligent, Secure, AI-Powered Document Analysis</h3>
-  <p>DocuMind transforms your static PDFs and web pages into interactive, conversational knowledge bases. Built with an enterprise-grade RAG architecture, complete data isolation, and a stunning glassmorphic UI.</p>
+  <p>DocuMind transforms your static PDFs and web pages into interactive, conversational knowledge bases. Built with an enterprise-grade RAG architecture, complete data isolation, and a stunning glassmorphics UI.</p>
 </div>
 
 ---
